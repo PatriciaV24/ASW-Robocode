@@ -1,89 +1,150 @@
 package man;
 import java.awt.Color;
+import java.awt.geom.Point2D;
+
 import robocode.*;
-import static robocode.util.Utils.normalRelativeAngleDegrees;
+import robocode.util.Utils;
+/**
+ * SuperSpinBot - a Super Sample Robot by CrazyBassoonist based on the robot RamFire by Mathew Nelson and maintained by Flemming N. Larsen.
+ *
+ * This robot tries to ram it's opponents.
+ *
+ */
+public class Neticha extends AdvancedRobot {
+
+    //These are constants. One advantage of these is that the logic in them (such as 20-3*BULLET_POWER)
+    //does not use codespace, making them cheaper than putting the logic in the actual code.
+
+    final static double BULLET_POWER=3;//Our bulletpower.
+    final static double BULLET_DAMAGE=BULLET_POWER*4;//Formula for bullet damage.
+    final static double BULLET_SPEED=20-3*BULLET_POWER;//Formula for bullet speed.
+
+    //Variables
+    static double direcao=1;
+    static double oldEnemyHeading;
+    static double enemyEnergy;
+    static double energiaEnimigo=100;
 
 
-public class Neticha extends AdvancedRobot{
-	double energiaEnimigo = 100;
-	int dirMovimento = 1;
-	int gunDirection = 1;
-	double gunTurnAmt; // How much to turn our gun when searching
+    public void run(){
+        setBodyColor(Color.red);
+        setGunColor(Color.red);
+        setRadarColor(Color.red);
 
-	public void run() {
-		setColors(Color.black,Color.cyan, Color.white);
-		/*MUDAR AS CORES NAS DIFERENTES OPÇOES
-		setBodyColor(Color.);
-		setGunColor(Color.);
-		setRadarColor(Color.);
-		setScanColor(Color.);
-		setBulletColor(Color.);		
-		*/
-		setAdjustRadarForRobotTurn(true);//keep the radar still while we turn
-        setAdjustGunForRobotTurn(true); // Keep the gun still when we turn
-		while(true){
-			scan();
-			turnGunRight(360);
-		}
-	}
-	public void onScannedRobot(ScannedRobotEvent e) {
-		double changeInEnergy = energiaEnimigo-e.getEnergy();
-		
-		//normalRelativeAngleDegrees -> Coloca o angulo entre 180 a -180
-		//e.getBearing-> angulo que o robot ad esta
-		//getHeading() -> 
-		gunTurnAmt = normalRelativeAngleDegrees(e.getBearing() + (getHeading() - getRadarHeading()));
-		System.out.println("Adversario" + e.getBearing());
-		System.out.println("Robot em relão ao campo"+ getHeading());
-		System.out.println("Radar do Robo"+ getRadarHeading());
-		
-		
+        setAdjustGunForRobotTurn(true);
+        setAdjustRadarForGunTurn(true);
+        setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
+    }
+    public void onScannedRobot(ScannedRobotEvent e){
+        double changeInEnergy = energiaEnimigo-e.getEnergy();
+        double posInimigo=e.getBearingRadians()+getHeadingRadians();
 
-		setTurnGunRight(gunTurnAmt); // and see how much Tracker improves...
-		fire(.5);
+        //This makes the amount we want to turn be perpendicular to the enemy.
+        double poslateral=posInimigo+Math.PI/2;
 
-		/*
-		if(gunTurnAmt<45 && gunTurnAmt>-45){
-			setTurnRight(90-gunTurnAmt);
-			setTurnRadarRight(-90-gunTurnAmt);
-		}
-			
-		
+        //This formula is used because the 1/e.getDistance() means that as we get closer to the enemy, we will turn to them more sharply.
+        //We want to do this because it reduces our chances of being defeated before we reach the enemy robot.
+        //poslateral-=Math.max(0.5,(1/e.getDistance())*100)*direcao;
+        if (changeInEnergy>0 && changeInEnergy<=3) {
+            setTurnRightRadians(Utils.normalRelativeAngle(poslateral-getHeadingRadians()));
+            setMaxVelocity(400/getTurnRemaining());
+            setAhead(100*direcao);
+            direcao=-direcao;
+        }
+  
 
-		// If the bot has small energy drop,
-		// assume it fired
-		if (changeInEnergy>0 && changeInEnergy<=3) {
-			dirMovimento =-dirMovimento;
-			setAhead((e.getDistance()/4+25)*dirMovimento);
-		}
-		
-		// When a bot is spotted,
-		// sweep the gun and radar
-		//gunDirection = -gunDirection;
-		//setTurnGunRight(gunTurnAmt+30-90*dirMovimento); 
-		
-		if(e.getDistance()>500)
-			fire(1);
-		if(e.getDistance()<200){
-			if(e.getDistance()<50 && getEnergy()>=30) fire(3);
-			else fire(2) ;
-		}
-		*/
-		// Track the energy level
-		energiaEnimigo = e.getEnergy();
+        //Finding the heading and heading change.
+        double enemyHeading = e.getHeadingRadians();
+        double enemyHeadingChange = enemyHeading - oldEnemyHeading;
+        oldEnemyHeading = enemyHeading;
 
-	}
+        /*This method of targeting is know as circular targeting; you assume your enemy will
+           *keep moving with the same speed and turn rate that he is using at fire time.The
+           *base code comes from the wiki.
+          */
+        double deltaTime = 0;
+        double predictedX = getX()+e.getDistance()*Math.sin(posInimigo);
+        double predictedY = getY()+e.getDistance()*Math.cos(posInimigo);
+        while((++deltaTime) * BULLET_SPEED <  Point2D.Double.distance(getX(), getY(), predictedX, predictedY)){
 
-	public void onHitWall(HitWallEvent e){
-		setTurnRight(45);
-	}
+            //Add the movement we think our enemy will make to our enemy's current X and Y
+            predictedX += Math.sin(enemyHeading) * e.getVelocity();
+            predictedY += Math.cos(enemyHeading) * e.getVelocity();
 
-	public void onHitByBullet(HitByBulletEvent e){
-		//setTurnRigth(e.getBearing());
-	}
 
-	public void onWin(WinEvent e){
+            //Find our enemy's heading changes.
+            enemyHeading += enemyHeadingChange;
 
-	}
+            //If our predicted coordinates are outside the walls, put them 18 distance units away from the walls as we know
+            //that that is the closest they can get to the wall (Bots are non-rotating 36*36 squares).
+            predictedX=Math.max(Math.min(predictedX,getBattleFieldWidth()-18),18);
+            predictedY=Math.max(Math.min(predictedY,getBattleFieldHeight()-18),18);
+
+        }
+        //Find the bearing of our predicted coordinates from us.
+        double aim = Utils.normalAbsoluteAngle(Math.atan2(  predictedX - getX(), predictedY - getY()));
+
+        //Aim and fire.
+        setTurnGunRightRadians(Utils.normalRelativeAngle(aim - getGunHeadingRadians()));
+       if(e.getDistance()>300 && e.getDistance()<500){
+            fire(1);
+            System.out.println(e.getDistance()+": 1");
+        }else{
+            if(e.getDistance()<100 && getEnergy()>=30){ 
+                fire(3);
+                System.out.println(e.getDistance()+":3");
+            }else {                        fire(2);
+                System.out.println(e.getDistance()+": 2");
+            }
+        }
+
+        setTurnRadarRightRadians(Utils.normalRelativeAngle(posInimigo-getRadarHeadingRadians())*2);
+    
+        energiaEnimigo = e.getEnergy();
+    }
+    public void onBulletHit(BulletHitEvent e){
+        enemyEnergy-=BULLET_DAMAGE;
+        
+    }
+    public void onHitByBullet(HitByBulletEvent e){
+        setAhead(100*direcao);
+        setTurnRight(180);
+        direcao=-direcao;
+    }
+    public void onHitWall(HitWallEvent e){
+        direcao=-direcao;
+        /*if(getY()==0 && getHeadingRadians() < -Math.PI/2 && getHeadingRadians()<Math.PI/2){
+            ahead(-100);
+            turnRight(getHeadingRadians()+90);
+        }else{
+            ahead(100);
+            turnRight(getHeadingRadians()+90);
+        }
+        if(getX()==0 && getHeadingRadians() < 0 && getHeadingRadians() < Math.PI){
+            ahead(-100);
+            turnRight(getHeadingRadians()+90);
+
+        }else{
+            ahead(100);
+            turnRight(getHeadingRadians()+90);
+        }
+        if(getY()==getBattleFieldHeight() && getHeadingRadians() < -Math.PI/2 && getHeadingRadians()<Math.PI/2){
+            ahead(-100);
+            turnRight(getHeadingRadians()+90);
+        }else{
+            ahead(100);
+            turnRight(getHeadingRadians()+90);
+        }
+        if(getX()==getBattleFieldWidth() && getHeadingRadians() < 0 && getHeadingRadians()< -Math.PI){
+            ahead(-100);
+            turnRight(getHeadingRadians()+90);
+  
+        }else{
+            ahead(100);
+            turnRight(getHeadingRadians()+90);
+
+        }*/
+
+
+    }
 }
-
