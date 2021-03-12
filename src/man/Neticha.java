@@ -1,30 +1,34 @@
 package man;
 import java.awt.Color;
-import java.awt.geom.Point2D;
-
 import robocode.*;
 import robocode.util.Utils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.awt.geom.*;
+
+
 /**
  * Olaaa
  *
  * @author Manuel Sá
  * @author Patrícia Vieira
  */
+
 public class Neticha extends AdvancedRobot {
-
-    //These are constants. One advantage of these is that the logic in them (such as 20-3*BULLET_POWER)
-    //does not use codespace, making them cheaper than putting the logic in the actual code.
-
     final static double BULLET_POWER=3;//Our bulletpower.
     final static double BULLET_DAMAGE=BULLET_POWER*4;//Formula for bullet damage.
     final static double BULLET_SPEED=20-3*BULLET_POWER;//Formula for bullet speed.
 
-    //Variables
-    static double direcao=1;
+	//Variables
+    static int direcao=1;
     static double oldEnemyHeading;
     static double enemyEnergy;
     static double energiaEnimigo=100;
 
+	List<WaveBullet> waves = new ArrayList<WaveBullet>();
+	static int[] stats = new int[31]; 
 
     public void run(){
         setBodyColor(Color.red);
@@ -32,72 +36,100 @@ public class Neticha extends AdvancedRobot {
         setRadarColor(Color.red);
 
         setAdjustGunForRobotTurn(true);
-        setAdjustRadarForGunTurn(true);
-        setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
-		setTurnRight(Math.pow((Math.E),(0.1*100))*8);
-
+		setAdjustRadarForGunTurn(true);
+		
 		while(true){
-			setAhead(200*direcao);
-			execute();
-			//scan();
+			if(getRadarTurnRemaining()==0.0){
+				setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
+			}
+			execute();	
 		}
     }
+	@Override
     public void onScannedRobot(ScannedRobotEvent e){
-        double changeInEnergy = energiaEnimigo-e.getEnergy();
-        double posInimigo=e.getBearingRadians()+getHeadingRadians();
+		double changeInEnergy = energiaEnimigo-e.getEnergy();
 
-        //This makes the amount we want to turn be perpendicular to the enemy.
-        double poslateral=posInimigo+Math.PI/2;
+		//RADAR
+        double posInimigo= getHeadingRadians() +e.getBearingRadians();
+		double radar=Utils.normalRelativeAngle(posInimigo-getRadarHeadingRadians());
+		double extraT=Math.min(Math.atan(36.0/e.getDistance()),Rules.RADAR_TURN_RATE_RADIANS);
+		radar+= (radar < 0 ? -extraT : extraT);
+		setTurnRadarRightRadians(radar);
+		
+		double poslateral=posInimigo+Math.PI/2;
+		
+		if (changeInEnergy>0 && changeInEnergy<=3) {
+			Random ran = new Random();
+			int r= ran.nextInt(2);
 
-		// Esta fórmula é usada porque 1 / e.getDistance () significa que à medida que nos aproximamos do inimigo, nos voltaremos para ele de forma mais precisa.
-        // Queremos fazer isso porque reduz nossas chances de sermos derrotados antes de alcançarmos o robô inimigo.
-        //poslateral-=Math.max(0.5,(1/e.getDistance())*100)*direcao;
-        if (changeInEnergy>0 && changeInEnergy<=3) {
-			
-            //setTurnRightRadians(Utils.normalRelativeAngle(poslateral-getHeadingRadians()));
+			setAhead(100*direcao);
+            setTurnRightRadians(Utils.normalRelativeAngle(poslateral-getHeadingRadians())+Math.PI/6*-direcao);
             setMaxVelocity(400/getTurnRemaining());
+			if(r==0) 
+				direcao=-direcao;
 
-			
         }
 		if(e.getVelocity()==0 && e.getEnergy()==0){
 			fire(3);
 		}
-
-        //Finding the heading and heading change.
-        double enemyHeading = e.getHeadingRadians();
-        double enemyHeadingChange = enemyHeading - oldEnemyHeading;
-        oldEnemyHeading = enemyHeading;
-
-        /*This method of targeting is know as circular targeting; you assume your enemy will
-           *keep moving with the same speed and turn rate that he is using at fire time.The
-           *base code comes from the wiki.
-          */
-        double deltaTime = 0;
-        double predictedX = getX()+e.getDistance()*Math.sin(posInimigo);
-        double predictedY = getY()+e.getDistance()*Math.cos(posInimigo);
-        while((++deltaTime) * BULLET_SPEED <  Point2D.Double.distance(getX(), getY(), predictedX, predictedY)){
-
-            //Add the movement we think our enemy will make to our enemy's current X and Y
-            predictedX += Math.sin(enemyHeading) * e.getVelocity();
-            predictedY += Math.cos(enemyHeading) * e.getVelocity();
-
-
-            //Find our enemy's heading changes.
-            enemyHeading += enemyHeadingChange;
-
-            //If our predicted coordinates are outside the walls, put them 18 distance units away from the walls as we know
-            //that that is the closest they can get to the wall (Bots are non-rotating 36*36 squares).
-            predictedX=Math.max(Math.min(predictedX,getBattleFieldWidth()-18),18);
-            predictedY=Math.max(Math.min(predictedY,getBattleFieldHeight()-18),18);
-
-        }
-        //Find the bearing of our predicted coordinates from us.
-        double aim = Utils.normalAbsoluteAngle(Math.atan2(  predictedX - getX(), predictedY - getY()));
-
-        //Aim and fire.
-        setTurnGunRightRadians(Utils.normalRelativeAngle(aim - getGunHeadingRadians()));
 		
-		if(e.getDistance()<100 && getEnergy()>=30){ 
+		// Enemy absolute bearing, you can use your one if you already declare it.
+		double absBearing = getHeadingRadians() + e.getBearingRadians();
+
+		// find our enemy's location:
+		double ex = getX() + Math.sin(absBearing) * e.getDistance();
+		double ey = getY() + Math.cos(absBearing) * e.getDistance();
+		
+		// Let's process the waves now:
+		for (int i=0; i < waves.size(); i++){
+			WaveBullet currentWave = (WaveBullet)waves.get(i);
+			if (currentWave.checkHit(ex, ey, getTime())){
+				waves.remove(currentWave);
+				i--;
+			}
+		}
+		
+		double power = 3;
+		// don't try to figure out the direcao they're moving 
+		// they're not moving, just use the direcao we had before
+		if (e.getVelocity() != 0){
+			if (Math.sin(e.getHeadingRadians()-absBearing)*e.getVelocity() < 0)
+				direcao = -1;
+			else
+				direcao = 1;
+		}
+		int[] currentStats = stats; // This seems silly, but I'm using it to
+					    // show something else later
+		WaveBullet newWave = new WaveBullet(getX(), getY(), absBearing, power,direcao, getTime(), currentStats);
+
+		int bestindex = 15;	// initialize it to be in the middle, guessfactor 0.
+		for (int i=0; i<31; i++)
+			if (currentStats[bestindex] < currentStats[i])
+				bestindex = i;
+		
+		// this should do the opposite of the math in the WaveBullet:
+		double guessfactor = (double)(bestindex - (stats.length - 1) / 2)/ ((stats.length - 1) / 2);
+		double angleOffset = direcao * guessfactor * newWave.maxEscapeAngle();
+				double gunAdjust = Utils.normalRelativeAngle(absBearing - getGunHeadingRadians() + angleOffset);
+				setTurnGunRightRadians(gunAdjust);
+
+
+		//TENTAR PERCEBER ESTA PARTE
+		if (setFireBullet(3) != null)
+			waves.add(newWave);
+			if (getGunHeat() == 0 && gunAdjust < Math.atan2(9, e.getDistance()) && setFireBullet(3) != null) {
+				//fire(3);
+			}
+
+
+			for(int i=0; i<31;i++) 
+			System.out.print(stats[i]+" ");
+			System.out.println();
+
+
+		/*
+        //Aim and fire.
+		if(e.getDistance()<100 && getEnergy()>=30){
 			fire(3);
 			System.out.println(e.getDistance()+":3");
 		}else {
@@ -108,65 +140,66 @@ public class Neticha extends AdvancedRobot {
 					fire(2);
 					System.out.println(e.getDistance()+":2");
 				}else{
-					if(e.getDistance()<300){
-						fire(1);
-						System.out.println(e.getDistance()+":1");
+						if(e.getDistance()<400)
+							fire(1);
 					}
 				}
 			}
-
-		}
-        setTurnRadarRightRadians(Utils.normalRelativeAngle(posInimigo-getRadarHeadingRadians())*2);
-    
-        energiaEnimigo = e.getEnergy();
-    }
-    public void onBulletHit(BulletHitEvent e){
-        enemyEnergy-=BULLET_DAMAGE;
-        
-    }
-    public void onHitByBullet(HitByBulletEvent e){
-      
+		*/
+		
+		energiaEnimigo = e.getEnergy();
+	}
+	public void onHitByBullet(HitByBulletEvent e){
         //setTurnRight(180);
 		direcao=-direcao;
 		setAhead(100*direcao);
 
 	}
     public void onHitWall(HitWallEvent e){
+		stop();
+		setTurnRight(90*direcao);
 		direcao=-direcao;
-
+		scan();
+	}
+	
+	public class WaveBullet{
+		private double startX, startY, startBearing, power;
+		private long   fireTime;
+		private int    direcao;
+		private int[]  returnSegment;
 		
-        /*if(getY()==0 && getHeadingRadians() < -Math.PI/2 && getHeadingRadians()<Math.PI/2){
-            ahead(-100);
-            turnRight(getHeadingRadians()+90);
-        }else{
-            ahead(100);
-            turnRight(getHeadingRadians()+90);
-        }
-        if(getX()==0 && getHeadingRadians() < 0 && getHeadingRadians() < Math.PI){
-            ahead(-100);
-            turnRight(getHeadingRadians()+90);
-
-        }else{
-            ahead(100);
-            turnRight(getHeadingRadians()+90);
-        }
-        if(getY()==getBattleFieldHeight() && getHeadingRadians() < -Math.PI/2 && getHeadingRadians()<Math.PI/2){
-            ahead(-100);
-            turnRight(getHeadingRadians()+90);
-        }else{
-            ahead(100);
-            turnRight(getHeadingRadians()+90);
-        }
-        if(getX()==getBattleFieldWidth() && getHeadingRadians() < 0 && getHeadingRadians()< -Math.PI){
-            ahead(-100);
-            turnRight(getHeadingRadians()+90);
-  
-        }else{
-            ahead(100);
-            turnRight(getHeadingRadians()+90);
-
-        }*/
-
-
-    }
+		public WaveBullet(double x, double y, double bearing, double power,int direcao, long time, int[] segment){
+			startX         = x;
+			startY         = y;
+			startBearing   = bearing;
+			this.power     = power;
+			this.direcao = direcao;
+			fireTime       = time;
+			returnSegment  = segment;
+		}
+		public double getBulletSpeed(){
+			return 20 - 3 * power;
+		}
+		
+		public double maxEscapeAngle(){
+			return Math.asin(8 / getBulletSpeed());
+		}
+		public boolean checkHit(double enemyX, double enemyY, long currentTime){
+		// if the distance from the wave origin to our enemy has passed
+		// the distance the bullet would have traveled...
+			if (Point2D.distance(startX, startY, enemyX, enemyY) <= 
+					(currentTime - fireTime) * getBulletSpeed())
+			{
+				double desiredDirection = Math.atan2(enemyX - startX, enemyY - startY);
+				double angleOffset = Utils.normalRelativeAngle(desiredDirection - startBearing);
+				double guessFactor =
+					Math.max(-1, Math.min(1, angleOffset / maxEscapeAngle())) * direcao;
+				int index = (int) Math.round((returnSegment.length - 1) /2 * (guessFactor + 1));
+				returnSegment[index]++;
+				return true;
+			}
+			return false;
+		}
+	}
 }
+
