@@ -5,10 +5,10 @@ import java.awt.geom.Point2D;
 import robocode.*;
 import robocode.util.Utils;
 /**
- * SuperSpinBot - a Super Sample Robot by CrazyBassoonist based on the robot RamFire by Mathew Nelson and maintained by Flemming N. Larsen.
+ * Olaaa
  *
- * This robot tries to ram it's opponents.
- *
+ * @author Manuel Sá
+ * @author Patrícia Vieira
  */
 public class Neticha extends AdvancedRobot {
 
@@ -34,6 +34,13 @@ public class Neticha extends AdvancedRobot {
         setAdjustGunForRobotTurn(true);
         setAdjustRadarForGunTurn(true);
         setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
+		setTurnRight(Math.pow((Math.E),(0.1*100))*8);
+
+		while(true){
+			setAhead(200*direcao);
+			execute();
+			//scan();
+		}
     }
     public void onScannedRobot(ScannedRobotEvent e){
         double changeInEnergy = energiaEnimigo-e.getEnergy();
@@ -42,16 +49,19 @@ public class Neticha extends AdvancedRobot {
         //This makes the amount we want to turn be perpendicular to the enemy.
         double poslateral=posInimigo+Math.PI/2;
 
-        //This formula is used because the 1/e.getDistance() means that as we get closer to the enemy, we will turn to them more sharply.
-        //We want to do this because it reduces our chances of being defeated before we reach the enemy robot.
+		// Esta fórmula é usada porque 1 / e.getDistance () significa que à medida que nos aproximamos do inimigo, nos voltaremos para ele de forma mais precisa.
+        // Queremos fazer isso porque reduz nossas chances de sermos derrotados antes de alcançarmos o robô inimigo.
         //poslateral-=Math.max(0.5,(1/e.getDistance())*100)*direcao;
         if (changeInEnergy>0 && changeInEnergy<=3) {
-            setTurnRightRadians(Utils.normalRelativeAngle(poslateral-getHeadingRadians()));
+			
+            //setTurnRightRadians(Utils.normalRelativeAngle(poslateral-getHeadingRadians()));
             setMaxVelocity(400/getTurnRemaining());
-            setAhead(100*direcao);
-            direcao=-direcao;
+
+			
         }
-  
+		if(e.getVelocity()==0 && e.getEnergy()==0){
+			fire(3);
+		}
 
         //Finding the heading and heading change.
         double enemyHeading = e.getHeadingRadians();
@@ -86,18 +96,26 @@ public class Neticha extends AdvancedRobot {
 
         //Aim and fire.
         setTurnGunRightRadians(Utils.normalRelativeAngle(aim - getGunHeadingRadians()));
-       if(e.getDistance()>300 && e.getDistance()<500){
-            fire(1);
-            System.out.println(e.getDistance()+": 1");
-        }else{
-            if(e.getDistance()<100 && getEnergy()>=30){ 
-                fire(3);
-                System.out.println(e.getDistance()+":3");
-            }else {                        fire(2);
-                System.out.println(e.getDistance()+": 2");
-            }
-        }
+		
+		if(e.getDistance()<100 && getEnergy()>=30){ 
+			fire(3);
+			System.out.println(e.getDistance()+":3");
+		}else {
+			if(e.getDistance()<100){
+				setAhead(-300);
+			}else{
+				if(e.getDistance()<200){
+					fire(2);
+					System.out.println(e.getDistance()+":2");
+				}else{
+					if(e.getDistance()<300){
+						fire(1);
+						System.out.println(e.getDistance()+":1");
+					}
+				}
+			}
 
+		}
         setTurnRadarRightRadians(Utils.normalRelativeAngle(posInimigo-getRadarHeadingRadians())*2);
     
         energiaEnimigo = e.getEnergy();
@@ -107,12 +125,16 @@ public class Neticha extends AdvancedRobot {
         
     }
     public void onHitByBullet(HitByBulletEvent e){
-        setAhead(100*direcao);
-        setTurnRight(180);
-        direcao=-direcao;
-    }
+      
+        //setTurnRight(180);
+		direcao=-direcao;
+		setAhead(100*direcao);
+
+	}
     public void onHitWall(HitWallEvent e){
-        direcao=-direcao;
+		direcao=-direcao;
+
+		
         /*if(getY()==0 && getHeadingRadians() < -Math.PI/2 && getHeadingRadians()<Math.PI/2){
             ahead(-100);
             turnRight(getHeadingRadians()+90);
