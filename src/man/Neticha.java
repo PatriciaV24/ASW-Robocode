@@ -105,7 +105,12 @@ public class Neticha extends AdvancedRobot{
 		
 		 setTurnGunRightRadians(Utils.normalRelativeAngle(posInimigo-getGunHeadingRadians())
 	                +gunAngles[8+(int)(e.getVelocity()*Math.sin(e.getHeadingRadians()-posInimigo))]);
-	        setFire(2);
+	        
+		 	if(e.getDistance()<150) setFire(3);
+			 else{
+				if(e.getDistance()<300) setFire(2);
+					else setFire(1);
+			 }
 
 	        setTurnRadarRightRadians(Utils.normalRelativeAngle(posInimigo-getRadarHeadingRadians())*2);
 
