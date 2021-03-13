@@ -73,12 +73,10 @@ public class Neticha extends AdvancedRobot {
 			fire(3);
 		}
 		
-		// Enemy absolute bearing, you can use your one if you already declare it.
-		double absBearing = getHeadingRadians() + e.getBearingRadians();
-
+		
 		// find our enemy's location:
-		double ex = getX() + Math.sin(absBearing) * e.getDistance();
-		double ey = getY() + Math.cos(absBearing) * e.getDistance();
+		double ex = getX() + Math.sin(posInimigo) * e.getDistance();
+		double ey = getY() + Math.cos(posInimigo) * e.getDistance();
 		
 		// Let's process the waves now:
 		for (int i=0; i < waves.size(); i++){
@@ -93,14 +91,14 @@ public class Neticha extends AdvancedRobot {
 		// don't try to figure out the direcao they're moving 
 		// they're not moving, just use the direcao we had before
 		if (e.getVelocity() != 0){
-			if (Math.sin(e.getHeadingRadians()-absBearing)*e.getVelocity() < 0)
+			if (Math.sin(e.getHeadingRadians()-posInimigo)*e.getVelocity() < 0)
 				direcao = -1;
 			else
 				direcao = 1;
 		}
 		int[] currentStats = stats; // This seems silly, but I'm using it to
 					    // show something else later
-		WaveBullet newWave = new WaveBullet(getX(), getY(), absBearing, power,direcao, getTime(), currentStats);
+		WaveBullet newWave = new WaveBullet(getX(), getY(), posInimigo, power,direcao, getTime(), currentStats);
 
 		int bestindex = 15;	// initialize it to be in the middle, guessfactor 0.
 		for (int i=0; i<31; i++)
@@ -110,16 +108,17 @@ public class Neticha extends AdvancedRobot {
 		// this should do the opposite of the math in the WaveBullet:
 		double guessfactor = (double)(bestindex - (stats.length - 1) / 2)/ ((stats.length - 1) / 2);
 		double angleOffset = direcao * guessfactor * newWave.maxEscapeAngle();
-				double gunAdjust = Utils.normalRelativeAngle(absBearing - getGunHeadingRadians() + angleOffset);
+				double gunAdjust = Utils.normalRelativeAngle(posInimigo - getGunHeadingRadians() + angleOffset);
 				setTurnGunRightRadians(gunAdjust);
 
 
-		//TENTAR PERCEBER ESTA PARTE
-		if (setFireBullet(3) != null)
+		//Se o disparo realmente acontecer, adicionamos o marcador de nova onda ao nosso ArrayList.
+		if (setFireBullet(1) != null)
 			waves.add(newWave);
-			if (getGunHeat() == 0 && gunAdjust < Math.atan2(9, e.getDistance()) && setFireBullet(3) != null) {
-				//fire(3);
-			}
+		
+		if (getGunHeat() == 0 && gunAdjust < Math.atan2(9, e.getDistance()) && setFireBullet(3) != null) {
+			fire(3);
+		}
 
 
 			for(int i=0; i<31;i++) 
@@ -127,7 +126,7 @@ public class Neticha extends AdvancedRobot {
 			System.out.println();
 
 
-		/*
+		
         //Aim and fire.
 		if(e.getDistance()<100 && getEnergy()>=30){
 			fire(3);
@@ -145,12 +144,12 @@ public class Neticha extends AdvancedRobot {
 					}
 				}
 			}
-		*/
+		
 		
 		energiaEnimigo = e.getEnergy();
 	}
 	public void onHitByBullet(HitByBulletEvent e){
-        //setTurnRight(180);
+        setTurnRight(180);
 		direcao=-direcao;
 		setAhead(100*direcao);
 
@@ -182,11 +181,17 @@ public class Neticha extends AdvancedRobot {
 		}
 		
 		public double maxEscapeAngle(){
+			//you can't hit someone with a bullet at time 7.5, so it will hit them at 8 and 
+			//they will have gone just a little bit further
 			return Math.asin(8 / getBulletSpeed());
 		}
+
+		//his method will check if the wave has hit the enemy
 		public boolean checkHit(double enemyX, double enemyY, long currentTime){
 		// if the distance from the wave origin to our enemy has passed
 		// the distance the bullet would have traveled...
+
+		//If it has, it will figure out what GuessFactor the enemy is at, find the appropriate index into the returnSegment and increment it. Then it will return true if it hit. Return true signifies that the wave should no longer be tracked.
 			if (Point2D.distance(startX, startY, enemyX, enemyY) <= 
 					(currentTime - fireTime) * getBulletSpeed())
 			{
