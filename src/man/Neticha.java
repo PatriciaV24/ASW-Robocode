@@ -1,7 +1,11 @@
 package man;
 import java.awt.Color;
+import java.awt.geom.Point2D;
+
 import robocode.*;
 import robocode.util.Utils;
+
+import java.util.ArrayList;
 import java.util.Random;
 
 import javax.swing.plaf.synth.SynthStyle;
@@ -13,11 +17,24 @@ import javax.swing.plaf.synth.SynthStyle;
  * @author Patrícia Vieira
  */
 
+class GunWave{
+    double speed;
+    Point2D.Double origin;
+    int velSeg;
+    double absBearing;
+    double startTime;
+}	
+
 public class Neticha extends AdvancedRobot{
 	double energiaEnimigo = 100;
 	int dirMovimento = 1;
 	int gunDirection = 1;
 	int flagshoot=0;
+	final static double FIRE_SPEED=20-2*3;
+	
+	
+	ArrayList<GunWave> gunWaves=new ArrayList<GunWave>();
+	static double [] gunAngles=new double[16];
 
 	public void run() {
 		setColors(Color.white, Color.white, Color.white);
@@ -50,9 +67,13 @@ public class Neticha extends AdvancedRobot{
 
 		setTurnRight(e.getBearing()+90-30*dirMovimento);
 		
-		if(r==0) dirMovimento=-dirMovimento;
+		if(r==0) {
+			dirMovimento=-dirMovimento;
+			
+		}
 
 		if (changeInEnergy>0 &&changeInEnergy<=3) {
+			setColors(Color.black, Color.black, Color.black);
 			flagshoot=1;
 			if(e.getDistance()<400){
 				setAhead(-(e.getDistance()/4+200)*dirMovimento);
@@ -63,6 +84,7 @@ public class Neticha extends AdvancedRobot{
 			dirMovimento =-dirMovimento;	
 		}else{
 			if(e.getDistance()<500 && flagshoot==0){
+				
 				setAhead(-(e.getDistance()/4+200)*dirMovimento);
 				setTurnRight(e.getBearing()+90-30*dirMovimento);
 
@@ -74,60 +96,24 @@ public class Neticha extends AdvancedRobot{
 		
 
 		energiaEnimigo = e.getEnergy();
+		
+		if(getGunHeat()==0){
+            logFiringWave(e);
+        }
+		
+		checkFiringWaves(project(new Point2D.Double(getX(),getY()),e.getDistance(),posInimigo));
+		
+		 setTurnGunRightRadians(Utils.normalRelativeAngle(posInimigo-getGunHeadingRadians())
+	                +gunAngles[8+(int)(e.getVelocity()*Math.sin(e.getHeadingRadians()-posInimigo))]);
+	        setFire(2);
+
+	        setTurnRadarRightRadians(Utils.normalRelativeAngle(posInimigo-getRadarHeadingRadians())*2);
+
+		
 	}
 
 	public void onHitWall(HitWallEvent e){
-		stop();
-
-		
-		if(getX()==18){
-			if(getHeadingRadians()> -Math.PI/2 && getHeadingRadians()<Math.PI/2){
-				System.out.println("Lado Esquerdo, Frente Parede");
-				setAhead(-200);
-				setTurnRight(45*dirMovimento);
-
-			}else{
-				System.out.println("Lado Esquerdo, Tras Parede");
-				setAhead(150);
-				setTurnRight(45*dirMovimento);
-			}
-		}
-		if(getY()==18){
-			if(getHeadingRadians()> -Math.PI/2 && getHeadingRadians()<Math.PI/2){
-				System.out.println("Baixo, Frente Parede");
-				setAhead(-200);
-				setTurnRight(45*dirMovimento);
-			}else{
-				System.out.println("Baixo, Tras Parede");
-				setAhead(150);
-				setTurnRight(45*dirMovimento);
-			}
-		}
-		if(getX()==getBattleFieldWidth()-18){
-			if(getHeadingRadians()> -Math.PI/2 && getHeadingRadians()<Math.PI/2){
-				System.out.println("Lado Direito, Frente Parede");
-				setAhead(-200);
-				setTurnRight(45*dirMovimento);
-			}else{
-				System.out.println("Lado Direito, Tras Parede");
-				setAhead(150);
-				setTurnRight(45*dirMovimento);
-			}
-		}
-		if(getY()==getBattleFieldHeight()-18){
-			if(getHeadingRadians()>-Math.PI/2 && getHeadingRadians()<Math.PI/2){
-				System.out.println("Cima, Frente Parede");
-				setAhead(-200);
-				setTurnRight(45*dirMovimento);
-			}else{
-				System.out.println("Cima, Tras Parede");
-				setAhead(150);
-				setTurnRight(45*dirMovimento);
-			}
-		}
-		//setAhead(-150*dirMovimento);
-		//setTurnRight(45*dirMovimento);
-		scan();
+		dirMovimento=-dirMovimento;
 	}
 
 	public void onHitByBullet(HitByBulletEvent e){
@@ -138,4 +124,32 @@ public class Neticha extends AdvancedRobot{
 	public void onWin(WinEvent e){
 
 	}
-}
+
+	public void checkFiringWaves(Point2D.Double ePos){
+        GunWave w;
+        for(int i=0;i<gunWaves.size();i++){
+            w=gunWaves.get(i);
+            if((getTime()-w.startTime)*w.speed>=w.origin.distance(ePos)){
+                gunAngles[w.velSeg+8]=Utils.normalRelativeAngle(Utils.normalAbsoluteAngle(Math.atan2(ePos.x-w.origin.x, ePos.y-w.origin.y))-w.absBearing);
+                gunWaves.remove(w);
+            }
+        }
+    }
+
+	public void logFiringWave(ScannedRobotEvent e){
+        GunWave w=new GunWave();
+        w.absBearing=e.getBearingRadians()+getHeadingRadians();
+        w.speed=FIRE_SPEED;
+        w.origin=new Point2D.Double(getX(),getY());
+        w.velSeg=(int)(e.getVelocity()*Math.sin(e.getHeadingRadians()-w.absBearing));
+        w.startTime=getTime();
+        gunWaves.add(w);
+    }
+	public Point2D.Double project(Point2D.Double origin,double dist,double angle){
+	    return new Point2D.Double(origin.x+dist*Math.sin(angle),origin.y+dist*Math.cos(angle));
+	}
+
+}	
+
+	
+
