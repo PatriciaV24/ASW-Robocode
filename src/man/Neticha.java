@@ -10,13 +10,20 @@ import java.util.Random;
 
 
 /**
- * Olaaa
+ * O robo Neticha e a maquina de destruiçao criada com as seguintes caracteristicas:
+ *  
+ * 	-O movimeto baseia se na deteçao de disparos do adversrio, o que gera um movimento aleatorio nosso: 
+ * 		ou andamos em zigzag ou numa circunferencia em volta do adversario, mantendo sempre uma
+ * 		distancia de segurança;
+ *  
+ * 	-A arma consiste no conceito de wavebullet. Wavebullet e um sistema de deteçao de padroes de movimento
+ * 		com pesos nos angulos possiveis para onde posso disparar, e gradualmente reunir informaçao.
  *
  * @author Manuel Sá
  * @author Patrícia Vieira
  */
 
- //Esta classe cria uma estrutura de disparo
+ //Esta classe contem as informaçoes de uma preparaçao de disparo
 class GunWave{
     double speed;
     Point2D.Double origin;
@@ -25,18 +32,23 @@ class GunWave{
     double startTime;
 }	
 
+//classe do robo
 public class Neticha extends AdvancedRobot{
 	double energiaEnimigo = 100;
 	int dirMovimento = 1;
 	int flagshoot=0;
-	int FIRE_POW=1;
-	double FIRE_SPEED=20-3*FIRE_POW;
+	int firePow=1;
+	double fireSpeed=20-3*firePow;
 	
-	//lista que guarda os tiros dados 
+	//lista que guarda as possibilidades da arma para disparar 
 	ArrayList<GunWave> gunWaves=new ArrayList<GunWave>();
+	
+	//array dos angulos possiveis da arma
 	static double [] gunAngles=new double[16];
 
 	public void run() {
+	
+		//coloca cores e separa o radar e a arma do movimento
 		setColors(Color.white, Color.white, Color.white);
 		setAdjustGunForRobotTurn(true);
 		setAdjustRadarForGunTurn(true);
@@ -51,6 +63,8 @@ public class Neticha extends AdvancedRobot{
 
 
 	public void onScannedRobot(ScannedRobotEvent e) {
+		
+		//variaçao da vida do inimigo
 		double changeInEnergy = energiaEnimigo-e.getEnergy();
 		
 		//Radar do robo
@@ -94,26 +108,29 @@ public class Neticha extends AdvancedRobot{
 
 	
 		//Arma do robo
+		//ajusar o fire power de acordo com a distancia
 		if(e.getDistance()<150) 
-			FIRE_POW=3;
+			firePow=3;
 		else{
 			if(e.getDistance()<300) 
-				FIRE_POW=2;
+				firePow=2;
 			else 
-				FIRE_POW=1;
+				firePow=1;
 			}
 		
 		
+		//prepara o disparo
 		if(getGunHeat()==0){
-            FIRE_SPEED=20-3*FIRE_POW;
+            fireSpeed=20-3*firePow;
 			logFiringWave(e);
         }
 		
+		//verificar a lista das waves
 		checkFiringWaves(project(new Point2D.Double(getX(),getY()),e.getDistance(),posInimigo));
 		
 		setTurnGunRightRadians(Utils.normalRelativeAngle(posInimigo-getGunHeadingRadians())+gunAngles[8+(int)(e.getVelocity()*Math.sin(e.getHeadingRadians()-posInimigo))]);
 	        
-			setFire(FIRE_POW);
+			setFire(firePow);
 
 		setTurnRadarRightRadians(radar*2);
 
@@ -134,6 +151,7 @@ public class Neticha extends AdvancedRobot{
 
 	}
 
+	//verifica se uma preparaçao falhou ...se falhou remove o da lista e ajusta o angulo
 	public void checkFiringWaves(Point2D.Double ePos){
         GunWave w;
         for(int i=0;i<gunWaves.size();i++){
@@ -145,10 +163,12 @@ public class Neticha extends AdvancedRobot{
         }
     }
 
+
+	//adiciona uma possivel preparaçao da arma a lista
 	public void logFiringWave(ScannedRobotEvent e){
         GunWave w=new GunWave();
         w.absBearing=e.getBearingRadians()+getHeadingRadians();
-        w.speed=FIRE_SPEED;
+        w.speed=fireSpeed;
         w.origin=new Point2D.Double(getX(),getY());
         w.velSeg=(int)(e.getVelocity()*Math.sin(e.getHeadingRadians()-w.absBearing));
         w.startTime=getTime();
