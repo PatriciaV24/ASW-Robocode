@@ -82,7 +82,9 @@ public class Neticha extends AdvancedRobot{
 			}else{
 				setAhead((e.getDistance()/4+25)*dirMovimento);
 			}
+
 			dirMovimento =-dirMovimento;	
+			
 			if(e.getDistance()>450){
                 setAhead((e.getDistance()/4+25)*dirMovimento);
 				setTurnRightRadians(e.getBearingRadians()+Math.PI/2-Math.PI/6*dirMovimento);
@@ -96,7 +98,6 @@ public class Neticha extends AdvancedRobot{
 
 	
 		//Arma do robo
-		//ajusar o fire power de acordo com a distancia
 		if(e.getDistance()<150) 
 			firePow=3;
 		else{
@@ -143,45 +144,37 @@ public class Neticha extends AdvancedRobot{
 	public void verificarlimites() {
 		if(getX()<=36){
 			if(getHeadingRadians()>= Math.PI){
-				System.out.println("Lado Esquerdo, Frente Parede");
 				setAhead(-200);
 				setTurnRightRadians(Math.PI/4*dirMovimento);
 
 			}else{
-				System.out.println("Lado Esquerdo, Tras Parede");
 				setAhead(200);
 				setTurnRightRadians(Math.PI/4*dirMovimento);
 			}
 		}
 		if(getY()<=36){
 			if(getHeadingRadians()>= Math.PI/2 && getHeadingRadians()<= (3*Math.PI)/2){
-				System.out.println("Baixo, Frente Parede");
 				setAhead(-200);
 				setTurnRightRadians(Math.PI/4*dirMovimento);
 			}else{
-				System.out.println("Baixo, Tras Parede");
 				setAhead(200);
 				setTurnRightRadians(Math.PI/4*dirMovimento);
 			}
 		}
 		if(getX()>=getBattleFieldWidth()-36){
 			if(getHeadingRadians()>= 0 && getHeadingRadians()<=Math.PI){
-				System.out.println("Lado Direito, Frente Parede");
 				setAhead(-200);
 				setTurnRightRadians(Math.PI/4*dirMovimento);
 			}else{
-				System.out.println("Lado Direito, Tras Parede");
 				setAhead(200);
 				setTurnRightRadians(Math.PI/4*dirMovimento);
 			}
 		}
 		if(getY()>=getBattleFieldHeight()-36){
 			if(getHeadingRadians()<= Math.PI/2 || getHeadingRadians()>=(3*Math.PI)/2){
-				System.out.println("Cima, Frente Parede");
 				setAhead(-200);
 				setTurnRightRadians(Math.PI/4*dirMovimento);
 			}else{
-				System.out.println("Cima, Tras Parede");
 				setAhead(200);
 				setTurnRightRadians(Math.PI/4*dirMovimento);
 			}
