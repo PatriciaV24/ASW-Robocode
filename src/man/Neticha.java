@@ -10,9 +10,9 @@ import java.util.Random;
 
 
 /**
- * O robo Neticha e a maquina de destruiçao criada com as seguintes caracteristicas:
+ * O robo Neticha é a máquina de destruiçao criada com as seguintes caracteristicas:
  *  
- * 	-O movimeto baseia se na deteçao de disparos do adversrio, o que gera um movimento aleatorio nosso: 
+ * 	-O movimeto baseia-se na deteçao de disparos do adversrio, o que gera um movimento aleatorio nosso: 
  * 		ou andamos em zigzag ou numa circunferencia em volta do adversario, mantendo sempre uma
  * 		distancia de segurança;
  *  
@@ -22,24 +22,14 @@ import java.util.Random;
  * @author Manuel Sá
  * @author Patrícia Vieira
  */
-
- //Esta classe contem as informaçoes de uma preparaçao de disparo
-class GunWave{
-    double speed;
-    Point2D.Double origin;
-    int velSeg;
-    double absBearing;
-    double startTime;
-}	
-
-//classe do robo
 public class Neticha extends AdvancedRobot{
 	double energiaEnimigo = 100;
 	int dirMovimento = 1;
 	int flagshoot=0;
 	int firePow=1;
-	double fireSpeed=20-3*firePow;
+	double fireSpeed=0; 
 	
+
 	//lista que guarda as possibilidades da arma para disparar 
 	ArrayList<GunWave> gunWaves=new ArrayList<GunWave>();
 	
@@ -74,16 +64,14 @@ public class Neticha extends AdvancedRobot{
 		radar+= (radar < 0 ? -extraT : extraT);
 		setTurnRadarRightRadians(radar);
 
+		verificarlimites();
+
 		//Movimento do Robo
 		Random ran = new Random();
 		int r= ran.nextInt(2);
-
-		setTurnRightRadians(e.getBearingRadians()+Math.PI/2-Math.PI/6*dirMovimento);
 		
-		if(r==0) {
-			dirMovimento=-dirMovimento;
+		if(r==0) dirMovimento=-dirMovimento;
 			
-		}
 
 		if (changeInEnergy>0 &&changeInEnergy<=3) {
 			setColors(Color.black, Color.black, Color.black);
@@ -130,9 +118,10 @@ public class Neticha extends AdvancedRobot{
 		
 		setTurnGunRightRadians(Utils.normalRelativeAngle(posInimigo-getGunHeadingRadians())+gunAngles[8+(int)(e.getVelocity()*Math.sin(e.getHeadingRadians()-posInimigo))]);
 	        
-			setFire(firePow);
-
+		setFire(firePow);
 		setTurnRadarRightRadians(radar*2);
+
+		verificarlimites();
 
 		energiaEnimigo = e.getEnergy();
 	}
@@ -151,6 +140,64 @@ public class Neticha extends AdvancedRobot{
 
 	}
 
+	public void verificarlimites() {
+		if(getX()<=36){
+			if(getHeadingRadians()>= Math.PI){
+				System.out.println("Lado Esquerdo, Frente Parede");
+				setAhead(-200);
+				setTurnRightRadians(Math.PI/4*dirMovimento);
+
+			}else{
+				System.out.println("Lado Esquerdo, Tras Parede");
+				setAhead(200);
+				setTurnRightRadians(Math.PI/4*dirMovimento);
+			}
+		}
+		if(getY()<=36){
+			if(getHeadingRadians()>= Math.PI/2 && getHeadingRadians()<= (3*Math.PI)/2){
+				System.out.println("Baixo, Frente Parede");
+				setAhead(-200);
+				setTurnRightRadians(Math.PI/4*dirMovimento);
+			}else{
+				System.out.println("Baixo, Tras Parede");
+				setAhead(200);
+				setTurnRightRadians(Math.PI/4*dirMovimento);
+			}
+		}
+		if(getX()>=getBattleFieldWidth()-36){
+			if(getHeadingRadians()>= 0 && getHeadingRadians()<=Math.PI){
+				System.out.println("Lado Direito, Frente Parede");
+				setAhead(-200);
+				setTurnRightRadians(Math.PI/4*dirMovimento);
+			}else{
+				System.out.println("Lado Direito, Tras Parede");
+				setAhead(200);
+				setTurnRightRadians(Math.PI/4*dirMovimento);
+			}
+		}
+		if(getY()>=getBattleFieldHeight()-36){
+			if(getHeadingRadians()<= Math.PI/2 || getHeadingRadians()>=(3*Math.PI)/2){
+				System.out.println("Cima, Frente Parede");
+				setAhead(-200);
+				setTurnRightRadians(Math.PI/4*dirMovimento);
+			}else{
+				System.out.println("Cima, Tras Parede");
+				setAhead(200);
+				setTurnRightRadians(Math.PI/4*dirMovimento);
+			}
+		}
+
+	}
+
+	 //Esta classe contem as informaçoes de uma preparaçao de disparo
+	class GunWave{ 
+		double speed;
+		Point2D.Double origin;
+		int velSeg;
+		double absBearing;
+		double startTime;
+	}	
+
 	//verifica se uma preparaçao falhou ...se falhou remove o da lista e ajusta o angulo
 	public void checkFiringWaves(Point2D.Double ePos){
         GunWave w;
@@ -162,7 +209,6 @@ public class Neticha extends AdvancedRobot{
             }
         }
     }
-
 
 	//adiciona uma possivel preparaçao da arma a lista
 	public void logFiringWave(ScannedRobotEvent e){
