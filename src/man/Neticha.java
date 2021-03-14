@@ -8,7 +8,6 @@ import robocode.util.Utils;
 import java.util.ArrayList;
 import java.util.Random;
 
-import javax.swing.plaf.synth.SynthStyle;
 
 /**
  * Olaaa
@@ -28,7 +27,6 @@ class GunWave{
 public class Neticha extends AdvancedRobot{
 	double energiaEnimigo = 100;
 	int dirMovimento = 1;
-	int gunDirection = 1;
 	int flagshoot=0;
 	final static double FIRE_SPEED=20-2*3;
 	
@@ -61,7 +59,6 @@ public class Neticha extends AdvancedRobot{
 		setTurnRadarRightRadians(radar);
 
 
-
 		Random ran = new Random();
 		int r= ran.nextInt(2);
 
@@ -75,27 +72,25 @@ public class Neticha extends AdvancedRobot{
 		if (changeInEnergy>0 &&changeInEnergy<=3) {
 			setColors(Color.black, Color.black, Color.black);
 			flagshoot=1;
-			if(e.getDistance()<400){
+			if(e.getDistance()<200){
 				setAhead(-(e.getDistance()/4+200)*dirMovimento);
 				setTurnRight(e.getBearing()+90-30*dirMovimento);
 			}else{
 				setAhead((e.getDistance()/4+25)*dirMovimento);
 			}
 			dirMovimento =-dirMovimento;	
+			if(e.getDistance()>450){
+                setAhead((e.getDistance()/4+25)*dirMovimento);
+				setTurnRight(e.getBearing()+90-30*dirMovimento);
+            }
 		}else{
-			if(e.getDistance()<500 && flagshoot==0){
-				
+			if(e.getDistance()<300 && flagshoot==0){
 				setAhead(-(e.getDistance()/4+200)*dirMovimento);
 				setTurnRight(e.getBearing()+90-30*dirMovimento);
-
 			}
 		}
 
-		gunDirection = -gunDirection;
-
-		
-
-		energiaEnimigo = e.getEnergy();
+	
 		
 		if(getGunHeat()==0){
             logFiringWave(e);
@@ -103,18 +98,20 @@ public class Neticha extends AdvancedRobot{
 		
 		checkFiringWaves(project(new Point2D.Double(getX(),getY()),e.getDistance(),posInimigo));
 		
-		 setTurnGunRightRadians(Utils.normalRelativeAngle(posInimigo-getGunHeadingRadians())
-	                +gunAngles[8+(int)(e.getVelocity()*Math.sin(e.getHeadingRadians()-posInimigo))]);
+		setTurnGunRightRadians(Utils.normalRelativeAngle(posInimigo-getGunHeadingRadians())+gunAngles[8+(int)(e.getVelocity()*Math.sin(e.getHeadingRadians()-posInimigo))]);
 	        
-		 	if(e.getDistance()<150) setFire(3);
-			 else{
-				if(e.getDistance()<300) setFire(2);
-					else setFire(1);
-			 }
+		if(e.getDistance()<150) 
+			setFire(3);
+		else{
+			if(e.getDistance()<300) 
+				setFire(2);
+			else 
+				setFire(1);
+			}
 
-	        setTurnRadarRightRadians(Utils.normalRelativeAngle(posInimigo-getRadarHeadingRadians())*2);
+		setTurnRadarRightRadians(radar*2);
 
-		
+		energiaEnimigo = e.getEnergy();
 	}
 
 	public void onHitWall(HitWallEvent e){
